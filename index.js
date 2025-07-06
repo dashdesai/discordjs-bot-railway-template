@@ -16,25 +16,33 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const foldersPath = path.join(__dirname, "commands");
-const commandFolders = fs.readdirSync(foldersPath);
+function getAllCommandFiles(dir) {
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  let files = [];
 
-for (const folder of commandFolders) {
-  const commandsPath = path.join(foldersPath, folder);
-  const commandFiles = fs
-    .readdirSync(commandsPath)
-    .filter((file) => file.endsWith(".js"));
-
-  for (const file of commandFiles) {
-    const filePath = path.join(commandsPath, file);
-    const command = await import(`file://${filePath}`);
-
-    if ("data" in command && "execute" in command) {
-      client.commands.set(command.data.name, command);
-    } else {
-      console.log(
-        `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`
-      );
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      files = files.concat(getAllCommandFiles(fullPath));
+    } else if (entry.name.endsWith(".js")) {
+      files.push(fullPath);
     }
+  }
+
+  return files;
+}
+
+const commandFiles = getAllCommandFiles(foldersPath);
+
+for (const filePath of commandFiles) {
+  const command = await import(`file://${filePath}`);
+
+  if ("data" in command && "execute" in command) {
+    client.commands.set(command.data.name, command);
+  } else {
+    console.log(
+      `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`
+    );
   }
 }
 
